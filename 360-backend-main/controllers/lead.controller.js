@@ -3,55 +3,115 @@ const nodemailer = require("nodemailer");
 
 // ✅ CREATE
 // ✅ CREATE + EMAIL
+// ✅ CREATE + SEND EMAIL
 exports.createLead = async (req, res) => {
   try {
     const lead = new Lead(req.body);
     await lead.save();
 
-    // Email configuration
+    // 1️⃣ Configure transporter (using Gmail App Password)
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com", // you can use another SMTP server if needed
+      host: "smtp.gmail.com",
       port: 465,
-      secure: true, // true for 465, false for 587
+      secure: true,
       auth: {
-        user: process.env.EMAIL_USER, // e.g. truehospitals@gmail.com
-        pass: process.env.EMAIL_PASS, // App password from Gmail or SMTP creds
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
-    // Email content
+    // 2️⃣ Branded HTML template (for TRUE Hospitals)
+    const mailHTML = `
+      <div style="font-family: 'Poppins', Arial, sans-serif; background: #f5f8fa; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+
+          <div style="background: linear-gradient(90deg, #0072bc, #00a3e0); padding: 25px 30px; text-align: center;">
+            <img src="https://truehospitals.com/logo.png" alt="TRUE Hospitals" style="height: 50px; margin-bottom: 10px;" />
+            <h2 style="color: white; margin: 0;">New Lead Notification</h2>
+          </div>
+
+          <div style="padding: 25px 30px;">
+            <p style="font-size: 16px; color: #333;">Dear Team,</p>
+            <p style="font-size: 15px; color: #555;">
+              A new lead has been created in the TRUE Hospitals CRM.
+            </p>
+
+            <table width="100%" cellspacing="0" cellpadding="8" style="margin-top: 15px; border-collapse: collapse;">
+              <tr style="background: #f0f7ff;">
+                <td style="font-weight: 600; color: #0072bc;">Lead ID</td>
+                <td>${lead.leadId}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #0072bc;">Name</td>
+                <td>${lead.name || "N/A"}</td>
+              </tr>
+              <tr style="background: #f0f7ff;">
+                <td style="font-weight: 600; color: #0072bc;">Phone</td>
+                <td>${lead.phone || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #0072bc;">Category</td>
+                <td>${lead.category || "N/A"}</td>
+              </tr>
+              <tr style="background: #f0f7ff;">
+                <td style="font-weight: 600; color: #0072bc;">Surgery Type</td>
+                <td>${lead.surgeryType || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #0072bc;">Concern</td>
+                <td>${lead.concern || "N/A"}</td>
+              </tr>
+              <tr style="background: #f0f7ff;">
+                <td style="font-weight: 600; color: #0072bc;">Date</td>
+                <td>${lead.date || "N/A"}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #0072bc;">Status</td>
+                <td>${lead.status || "N/A"}</td>
+              </tr>
+            </table>
+
+            <div style="margin-top: 25px;">
+              <a href="https://admin.truehospitals.com" target="_blank" 
+                style="display:inline-block; background:#0072bc; color:#fff; padding:12px 20px; border-radius:6px; text-decoration:none; font-weight:600;">
+                🔍 View Lead in Admin Panel
+              </a>
+            </div>
+
+            <p style="margin-top: 25px; font-size: 13px; color: #777;">
+              This is an automated notification from TRUE Hospitals CRM System.
+            </p>
+          </div>
+
+          <div style="background: #0072bc; color: #fff; text-align: center; padding: 12px;">
+            <p style="margin: 0; font-size: 13px;">© ${new Date().getFullYear()} TRUE Hospitals | Patna, Bihar</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 3️⃣ Define mail recipients
     const mailOptions = {
-      from: `"TRUE Hospitals" <${process.env.EMAIL_USER}>`,
+      from: `"TRUE Hospitals CRM" <${process.env.EMAIL_USER}>`,
       to: [
         "patientcare@truehospitals.com",
         "ankit@truehospitals.com",
         "sandeep@truehospitals.com",
       ],
-      subject: `🆕 New Lead Submitted: ${lead.name || "New Enquiry"}`,
-      html: `
-        <h2>New Lead Alert 🚀</h2>
-        <p>A new lead has been submitted from the website/admin panel.</p>
-        <hr />
-        <h3>Lead Details</h3>
-        <ul>
-          <li><b>Name:</b> ${lead.name || "N/A"}</li>
-          <li><b>Phone:</b> ${lead.phone || "N/A"}</li>
-          <li><b>Email:</b> ${lead.email || "N/A"}</li>
-          <li><b>City:</b> ${lead.city || "N/A"}</li>
-          <li><b>Message:</b> ${lead.message || "N/A"}</li>
-          <li><b>Created At:</b> ${new Date().toLocaleString()}</li>
-        </ul>
-        <hr />
-        <p style="color:#777;">This is an automated notification from TRUE Hospitals CRM.</p>
-      `,
+      subject: `🩺 New Lead #${lead.leadId} - ${lead.category || "General"}`,
+      html: mailHTML,
     };
 
-    // Send email
+    // 4️⃣ Send email
     await transporter.sendMail(mailOptions);
 
-    res.status(201).json({ success: true, lead });
+    res.status(201).json({
+      success: true,
+      lead,
+      message: "Lead created & email sent successfully",
+    });
   } catch (error) {
-    console.error("❌ Lead Creation or Email Error:", error);
+    console.error("❌ Lead creation/email error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
